@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
-import type { Lang, Message, MessageKind } from '../types';
-import { LANGUAGES } from '../languages';
+import type { Lang, Message, MessageKind, Phrase } from '../types';
+import { FLAGS, LANGUAGES } from '../languages';
+import catalog from '../../../shared/approved_phrases.json';
 import AccessibilityPanel from '../components/AccessibilityPanel';
 import MessageComposer from '../components/MessageComposer';
-import PhraseBoard from '../components/PhraseBoard';
 import VoiceRecorder from '../components/VoiceRecorder';
+
+const HOME_PHRASE_IDS = ['p001', 'p002', 'p003', 'p004', 'p007', 'p009'];
+const HOME_PHRASES = (catalog as { phrases: Phrase[] }).phrases
+  .filter(phrase => HOME_PHRASE_IDS.includes(phrase.id))
+  .sort((a, b) => HOME_PHRASE_IDS.indexOf(a.id) - HOME_PHRASE_IDS.indexOf(b.id));
 
 function activityStatus(status?: Message['status']) {
   if (status === 'acknowledged') return 'Crew acknowledged';
@@ -99,10 +104,13 @@ function CrewReplyInbox({ messages, deliveryMap, lang, speed }: { messages: Mess
   </section>;
 }
 
+type PassengerView = 'home' | 'voice' | 'type' | 'replies' | 'history' | 'more';
+
 export default function Passenger() {
   const app = useApp();
-  const [tab, setTab] = useState<'cards' | 'type' | 'voice' | 'settings' | 'replies' | 'history'>('cards');
+  const [view, setView] = useState<PassengerView>('home');
   const [crewLang, setCrewLang] = useState<Lang>(app.settings.crewLang);
+  const [justSent, setJustSent] = useState<string | null>(null);
   const [unreadReplyId, setUnreadReplyId] = useState<string | null>(null);
   const lastSeenReplyId = useRef<string | null>(null);
   const historyKey = `cb_hidden_requests_${app.settings.seat || 'unknown'}`;
@@ -120,8 +128,10 @@ export default function Passenger() {
     .slice()
     .sort((a, b) => (a.ts || 0) - (b.ts || 0));
   const lastRequest = [...app.messages].reverse().find(message => !message.is_crew_reply && !message.is_outgoing && !hiddenSet.has(message.id));
+  const lastStatus = lastRequest ? (app.deliveryMap[lastRequest.id] || lastRequest.status) : undefined;
   const latestReply = replies[replies.length - 1];
   const latestReplyText = latestReply ? (latestReply.translated_text || latestReply.source_text) : '';
+  const voiceAvailable = Boolean(LANGUAGES.find(language => language.code === app.settings.lang)?.asr);
 
   function persistHidden(next: string[]) {
     setHiddenRequests(next);
@@ -141,26 +151,31 @@ export default function Passenger() {
     persistHidden([]);
   }
 
-  useEffect(() => {
-    if (!latestReply || app.settings.confirmBeforeTTS || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(latestReply.translated_text || latestReply.source_text);
+  function speak(text: string) {
+    if (!window.speechSynthesis) return;
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = app.settings.lang;
     utterance.rate = app.settings.ttsSpeed;
+    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
+  }
+
+  useEffect(() => {
+    if (!latestReply || app.settings.confirmBeforeTTS || !window.speechSynthesis) return;
+    speak(latestReply.translated_text || latestReply.source_text);
   }, [latestReply?.id, app.settings.confirmBeforeTTS, app.settings.lang, app.settings.ttsSpeed]);
 
-  // A reply that arrives while the passenger is on another tab is surfaced
+  // A reply that arrives while the passenger is on another screen is surfaced
   // immediately in a fixed toast, so no refresh is ever needed to notice it.
   useEffect(() => {
     if (!latestReply) return;
-    if (tab === 'replies') {
+    if (view === 'replies') {
       lastSeenReplyId.current = latestReply.id;
       setUnreadReplyId(null);
       return;
     }
     if (latestReply.id !== lastSeenReplyId.current) setUnreadReplyId(latestReply.id);
-  }, [latestReply?.id, tab]);
+  }, [latestReply?.id, view]);
 
   useEffect(() => {
     if (app.wsStatus !== 'connected') return;
@@ -174,12 +189,7 @@ export default function Passenger() {
   function openReplies() {
     if (latestReply) lastSeenReplyId.current = latestReply.id;
     setUnreadReplyId(null);
-    setTab('replies');
-    window.setTimeout(() => {
-      document.querySelector('.crew-reply-inbox')?.scrollIntoView({
-        behavior: app.settings.reducedMotion ? 'auto' : 'smooth', block: 'start',
-      });
-    }, 50);
+    setView('replies');
   }
 
   function dismissReplyToast() {
@@ -202,78 +212,157 @@ export default function Passenger() {
     });
   }
 
-  const tabs = app.settings.simpleMode
-    ? ['cards', 'voice', 'replies', 'history'] as const
-    : ['cards', 'type', 'voice', 'replies', 'history', 'settings'] as const;
+  function sendPhrase(phrase: Phrase) {
+    const source = phrase.text[app.settings.lang] || phrase.text.en;
+    const translated = phrase.text[crewLang] || phrase.text.en;
+    send(source, translated, 'card');
+    setJustSent(phrase.id);
+    window.setTimeout(() => setJustSent(current => current === phrase.id ? null : current), 1800);
+  }
+
+  function changeLanguage(next: Lang) {
+    app.updateSettings({ lang: next });
+  }
+
+  const header = <>
+    <header className="simple-top">
+      <div>
+        <p className="simple-kicker">CabinBridge · JL-DEMO</p>
+        <h1 className="simple-title">How can we help?</h1>
+      </div>
+      <label className="simple-language">
+        <span aria-hidden="true">{FLAGS[app.settings.lang]}</span>
+        <span className="sr-only">Your language</span>
+        <select value={app.settings.lang} onChange={event => changeLanguage(event.target.value as Lang)}>
+          {LANGUAGES.map(language => <option key={language.code} value={language.code}>{language.nativeName}</option>)}
+        </select>
+      </label>
+    </header>
+    <p className="simple-connection">
+      <span className={`status-dot ${app.wsStatus === 'connected' && app.crewOnline ? 'online' : app.wsStatus === 'connecting' ? 'connecting' : 'offline'}`} />
+      {app.wsStatus !== 'connected' ? 'Connecting to the crew…' : app.crewOnline ? 'Crew connected' : 'Crew offline — use the call button if urgent'}
+    </p>
+  </>;
+
+  const backButton = view !== 'home'
+    ? <button type="button" className="simple-back" onClick={() => setView('home')}>← Back</button>
+    : null;
 
   return (
-    <div className="page container">
-      <header className="page-header">
-        <h1 className="page-title">Passenger communication</h1>
-        <label>Crew language <select value={crewLang} onChange={event => {
-          const next = event.target.value as Lang;
-          setCrewLang(next);
-          app.updateSettings({ crewLang: next });
-        }}>
-          {LANGUAGES.filter(language => language.translate).map(language =>
-            <option key={language.code} value={language.code}>{language.nativeName}</option>)}
-        </select></label>
-        <p>Connection: {app.wsStatus} · Crew {app.crewOnline ? 'online' : 'offline'}</p>
-      </header>
+    <div className="page container simple-passenger">
+      {header}
 
-      <nav className="tabs" aria-label="Ways to communicate">
-        {tabs.map(item => <button className={`tab ${tab === item ? 'active' : ''}`} key={item} onClick={() => setTab(item)}>
-          {item === 'cards' ? 'Phrase cards' : item === 'type' ? 'Type' : item === 'voice' ? 'Voice' : item === 'replies' ? `Crew replies${replies.length ? ` · ${replies.length}` : ''}` : item === 'history' ? `History${visibleHistoryCount ? ` · ${visibleHistoryCount}` : ''}` : 'Accessibility'}
-        </button>)}
-      </nav>
+      {view === 'home' ? <>
+        {replies.length > 0 && <section className="simple-replies" aria-label="Cabin crew replies">
+          <div className="simple-replies-head">
+            <h2>💬 From the crew</h2>
+            {replies.length > 2 && <button type="button" onClick={openReplies}>All {replies.length}</button>}
+          </div>
+          {replies.slice(-2).reverse().map(reply => {
+            const text = reply.translated_text || reply.source_text;
+            return <article className="simple-bubble" key={reply.id}>
+              <p>{text}</p>
+              <button type="button" className="simple-listen" onClick={() => speak(text)}>🔊 Listen</button>
+            </article>;
+          })}
+        </section>}
 
-      {tab === 'replies' ? <CrewReplyInbox messages={app.messages} deliveryMap={app.deliveryMap} lang={app.settings.lang} speed={app.settings.ttsSpeed} />
-        : tab === 'history' ? <ConversationHistory messages={app.messages} deliveryMap={app.deliveryMap}
-          hiddenIds={hiddenRequests} onHide={hideRequest} onHideAll={hideRequests} onRestore={restoreHidden} />
-        : <>
-      <p className="notice">Medical and allergy phrases are communication assistance, not medical advice.</p>
+        <section aria-labelledby="simple-needs-title">
+          <h2 id="simple-needs-title" className="simple-section-title">What do you need?</h2>
+          <div className="simple-tile-grid">
+            {HOME_PHRASES.map(phrase => {
+              const sent = justSent === phrase.id;
+              return <button key={phrase.id} type="button" className={`simple-tile ${sent ? 'is-sent' : ''}`}
+                onClick={() => sendPhrase(phrase)} aria-label={`${phrase.text.en} — send to crew`}>
+                <span className="simple-tile-icon" aria-hidden="true">{phrase.icon}</span>
+                <span className="simple-tile-text">{sent ? '✓ Sent to crew' : (phrase.text[app.settings.lang] || phrase.text.en)}</span>
+                {app.settings.lang !== 'en' && <span className="simple-tile-sub">{phrase.text.en}</span>}
+              </button>;
+            })}
+          </div>
+        </section>
 
-      {tab === 'cards' && <PhraseBoard lang={app.settings.lang} targetLang={crewLang}
-        simple={app.settings.simpleMode} ttsSpeed={app.settings.ttsSpeed}
-        onSend={(source, translated, kind) => send(source, translated, kind)} />}
-      {tab === 'type' && <MessageComposer sourceLang={app.settings.lang} targetLang={crewLang} onSend={send} />}
-      {tab === 'voice' && (LANGUAGES.find(language => language.code === app.settings.lang)?.asr
-        ? <section className="panel"><h2>Voice message</h2><VoiceRecorder targetLang={crewLang}
-          onResult={(source, translated, asrMs, translateMs, confidence, edited) => send(source, translated, 'speech', {
-            asr_ms: asrMs, translate_ms: translateMs,
-            confidence_level: confidence as 'high' | 'medium' | 'low' | 'empty', edited,
-          })} /></section>
-        : <p className="notice">Voice input is unavailable in this language. Use phrase cards or typed text.</p>)}
-      {tab === 'settings' && <>
-        <AccessibilityPanel />
-        <section className="panel"><h2>Language support</h2><div className="table-scroll">
-          <table><thead><tr><th>Language</th><th>Voice</th><th>Translation</th><th>Phrase cards</th></tr></thead>
-            <tbody>{LANGUAGES.map(language => <tr key={language.code}>
-              <td>{language.nativeName}</td><td>{language.asr ? 'ASR available' : 'Card only'}</td>
-              <td>{language.translate ? 'Argos local' : 'Card only'}</td><td>{language.phrasebook ? 'Available' : '—'}</td>
-            </tr>)}</tbody>
-          </table>
-        </div></section>
-      </>}
-
-      {!app.settings.simpleMode && <details className="panel"><summary>Quick communication</summary>
-        <div className="button-row">
-          <button className="btn btn-secondary" disabled={!lastRequest || app.wsStatus !== 'connected'} onClick={() => lastRequest && app.sendRepeatRequest(lastRequest.id)}>🔁 Please repeat</button>
-          <button className="btn btn-secondary" disabled={!lastRequest || app.wsStatus !== 'connected'} onClick={() => lastRequest && app.sendRepeatRequest(lastRequest.id)}>❓ I did not understand</button>
+        <div className="simple-secondary">
+          <button type="button" className="simple-action" onClick={() => setView('voice')}>
+            🎤<span>Speak<small>Say it in your language</small></span>
+          </button>
+          <button type="button" className="simple-action" onClick={() => setView('type')}>
+            ⌨️<span>Type<small>Write a message</small></span>
+          </button>
         </div>
-      </details>}
-      {!app.settings.simpleMode && <details className="panel"><summary>Request status · {Object.keys(app.deliveryMap).filter(id => !hiddenSet.has(id)).length}</summary>
-        {Object.entries(app.deliveryMap).filter(([id]) => !hiddenSet.has(id)).map(([id, status]) => {
-          const message = app.messages.find(item => item.id === id);
-          return <p key={id}><strong>{message?.is_crew_reply ? 'Crew reply' : 'Your request'}:</strong> {message?.translated_text || 'Message'} · {status === 'delivered' ? (message?.is_crew_reply ? 'Received' : 'Delivered to crew')
-            : status === 'acknowledged' ? 'Acknowledged by crew'
-              : status === 'resolved' ? 'Resolved by crew'
-                : status === 'not_delivered' ? 'Not delivered — press your call button or raise your hand' : 'Sending'}</p>;
-        })}
-      </details>}
+
+        {lastRequest && <section className={`simple-status ${lastStatus === 'not_delivered' ? 'is-error' : lastStatus === 'resolved' ? 'is-done' : ''}`} role="status" aria-live="polite">
+          <span className="simple-status-icon" aria-hidden="true">{lastStatus === 'not_delivered' ? '⚠️' : lastStatus === 'resolved' ? '✅' : '⏳'}</span>
+          <div>
+            <span className="simple-status-label">Last request</span>
+            <strong>{lastRequest.translated_text || lastRequest.source_text}</strong>
+            <span className="simple-status-text">{activityStatus(lastStatus)}</span>
+            {lastStatus === 'not_delivered' && <p className="simple-status-help">Press the call button above your seat or raise your hand.</p>}
+          </div>
+        </section>}
+
+        <p className="simple-disclaimer">Phrase translations are communication assistance, not medical advice.</p>
+
+        <nav className="simple-nav" aria-label="More options">
+          <button type="button" onClick={() => setView('replies')}>💬<span>Replies</span>{replies.length > 0 && <em>{replies.length}</em>}</button>
+          <button type="button" onClick={() => setView('history')}>🕘<span>History</span>{visibleHistoryCount > 0 && <em>{visibleHistoryCount}</em>}</button>
+          <button type="button" onClick={() => setView('more')}>⚙️<span>More</span></button>
+        </nav>
+      </> : <>
+        {backButton}
+        {view === 'voice' && <section className="simple-panel" aria-label="Speak your request">
+          <h2>Speak your request</h2>
+          <p className="simple-panel-hint">Tap the microphone, say what you need, check the words, then send.</p>
+          {voiceAvailable ? <VoiceRecorder targetLang={crewLang}
+            onResult={(source, translated, asrMs, translateMs, confidence, edited) => send(source, translated, 'speech', {
+              asr_ms: asrMs, translate_ms: translateMs,
+              confidence_level: confidence as 'high' | 'medium' | 'low' | 'empty', edited,
+            })} />
+            : <p className="simple-empty">Voice input is unavailable in this language. Please use the phrase cards or type your message.</p>}
+        </section>}
+
+        {view === 'type' && <section className="simple-panel" aria-label="Type your request">
+          <h2>Type your request</h2>
+          <MessageComposer sourceLang={app.settings.lang} targetLang={crewLang} onSend={send} />
+        </section>}
+
+        {view === 'replies' && <CrewReplyInbox messages={app.messages} deliveryMap={app.deliveryMap} lang={app.settings.lang} speed={app.settings.ttsSpeed} />}
+
+        {view === 'history' && <ConversationHistory messages={app.messages} deliveryMap={app.deliveryMap}
+          hiddenIds={hiddenRequests} onHide={hideRequest} onHideAll={hideRequests} onRestore={restoreHidden} />}
+
+        {view === 'more' && <section className="simple-panel" aria-label="More options">
+          <h2>More options</h2>
+          <div className="simple-more-list">
+            <button type="button" onClick={() => setView('replies')}>💬 Crew replies {replies.length > 0 && <em>{replies.length}</em>}</button>
+            <button type="button" onClick={() => setView('history')}>🕘 Request history</button>
+            <details>
+              <summary>🌐 Crew language</summary>
+              <p className="simple-panel-hint">The language your messages are translated into for the crew.</p>
+              <select value={crewLang} onChange={event => {
+                const next = event.target.value as Lang;
+                setCrewLang(next);
+                app.updateSettings({ crewLang: next });
+              }}>
+                {LANGUAGES.filter(language => language.translate).map(language =>
+                  <option key={language.code} value={language.code}>{language.nativeName}</option>)}
+              </select>
+            </details>
+            <details>
+              <summary>♿ Accessibility</summary>
+              <AccessibilityPanel />
+            </details>
+            <details>
+              <summary>ℹ️ About & privacy</summary>
+              <p className="simple-panel-hint">Local-first communication aid. Audio is processed in memory and is not stored. Translations are not medical advice and require native-speaker review before operational use.</p>
+              <a href="#/about">Read more</a>
+            </details>
+            <a href="#/">Switch workspace</a>
+          </div>
+        </section>}
       </>}
 
-      {unreadReplyId && tab !== 'replies' && latestReply && <div className="reply-toast" role="status" aria-live="assertive">
+      {unreadReplyId && view !== 'replies' && view !== 'home' && latestReply && <div className="reply-toast" role="status" aria-live="assertive">
         <div>
           <strong>💬 New reply from cabin crew</strong>
           <p className="reply-toast-text">{latestReplyText}</p>

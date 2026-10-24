@@ -40,13 +40,14 @@ export default function RequestQueue({ messages, urgentEvents, app, completed = 
   if (!matchingItems.length) return <div className="empty-state">{completed ? 'No completed requests yet.' : 'All requests are complete. New requests will appear here.'}</div>;
 
   return <>
-    <section className="panel queue-controls">
+    <details className="panel queue-controls">
+      <summary>Filter by seat · {seatFilter === 'all' ? `All seats · ${matchingItems.length}` : `Seat ${seatFilter}`}</summary>
       <label>Show requests for <select value={seatFilter} onChange={event => setSeatFilter(event.target.value)}>
         <option value="all">All seats · {matchingItems.length} requests</option>
         {seats.map(seat => <option key={seat} value={seat}>Seat {seat} · {matchingItems.filter(item => (item.seat || item.from) === seat).length}</option>)}
       </select></label>
       <p>{seats.length} passenger seat{seats.length === 1 ? '' : 's'} · Attend to each seat from this shared queue.</p>
-    </section>
+    </details>
     {!items.length ? <div className="empty-state">No requests for seat {seatFilter}.</div> : <div className="queue-list">
     {items.map(message => {
       const status = app.deliveryMap[message.id] || message.status;
@@ -78,9 +79,8 @@ export default function RequestQueue({ messages, urgentEvents, app, completed = 
         </div>
         {message.kind === 'safety' && <span className="badge badge-safety">Airline-approved</span>}
         {!completed && <div className="button-row">
+          <button className="btn btn-primary" disabled={!seat} onClick={() => app.replyToSeat(seat, message.source_lang, message.id)}>Reply to seat</button>
           <button className="btn btn-secondary" disabled={app.wsStatus !== 'connected' || status === 'acknowledged' || status === 'resolved'} onClick={() => app.sendAck(message.id)}>Acknowledge</button>
-          <button className="btn btn-primary" disabled={app.wsStatus !== 'connected' || status === 'resolved'} onClick={() => app.sendResolve(message.id)}>Move to Resolved queries</button>
-          <button className="btn btn-secondary" disabled={!seat} onClick={() => app.replyToSeat(seat, message.source_lang, message.id)}>Reply to seat</button>
         </div>}
       </article>;
     })}

@@ -51,17 +51,6 @@ export default function AccessibilityPanel({ onClose }: { onClose?: () => void }
       </div>
 
       <div className="a11y-row">
-        <label htmlFor="simple-mode">Simple Mode (for seniors)</label>
-        <input
-          id="simple-mode"
-          type="checkbox"
-          style={{width:'auto'}}
-          checked={settings.simpleMode}
-          onChange={e => updateSettings({ simpleMode: e.target.checked })}
-        />
-      </div>
-
-      <div className="a11y-row">
         <label htmlFor="tts-speed">TTS Speed: {settings.ttsSpeed}x</label>
         <input
           id="tts-speed"

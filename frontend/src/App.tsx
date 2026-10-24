@@ -25,10 +25,22 @@ export default function App() {
   const showNavigation = settings.languageChosen && Boolean(settings.role);
   return <div className="app-shell">
     <header className={`nav ${showNavigation ? '' : 'nav-welcome'}`}><a className="nav-logo" href="#/">✈ CabinBridge</a>
-      {showNavigation && <><nav className="nav-links" aria-label="Main navigation">
-        <a className="nav-link" href={settings.role === 'crew' ? '#/crew' : '#/passenger'}>{settings.role === 'crew' ? 'Crew workspace' : 'Passenger workspace'}</a>
-        <a className="nav-link" href="#/">Switch workspace</a><a className="nav-link" href="#/metrics">Metrics</a><a className="nav-link" href="#/about">About</a>
-      </nav><span className={`connection-chip ${wsStatus}`}>{wsStatus}</span></>}
+      {showNavigation && (settings.role === 'crew' ? <>
+        <nav className="nav-links" aria-label="Main navigation">
+          <a className="nav-link" href="#/crew">Crew workspace</a>
+          <a className="nav-link" href="#/">Switch workspace</a><a className="nav-link" href="#/metrics">Metrics</a><a className="nav-link" href="#/about">About</a>
+        </nav>
+        <span className={`connection-chip ${wsStatus}`}>{wsStatus}</span>
+      </> : <>
+        <span className={`connection-chip ${wsStatus}`}>{wsStatus}</span>
+        <details className="nav-more">
+          <summary aria-label="More options">⋯</summary>
+          <div className="nav-more-panel">
+            <a href="#/about">About &amp; privacy</a>
+            <a href="#/">Switch workspace</a>
+          </div>
+        </details>
+      </>)}
     </header>
     <OfflineBanner />
     {route.startsWith('/passenger') && settings.role === 'passenger' && <div className="urgent-dock"><UrgentButton /></div>}

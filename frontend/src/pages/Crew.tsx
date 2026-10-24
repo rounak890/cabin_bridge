@@ -75,7 +75,6 @@ export default function Crew() {
         <h1 className="page-title">Crew communication</h1>
         <p><span className={`status-dot ${app.wsStatus === 'connected' ? 'online' : 'offline'}`} />
           Crew console {app.wsStatus === 'connected' ? 'connected' : app.wsStatus}</p>
-        <p>Local backend: {backendOnline ? 'online' : 'offline'} · ASR/translation are available only when their local models are ready.</p>
         <div className="crew-summary" aria-label="Crew queue summary">
           <span><strong>{openRequestCount}</strong> open requests</span>
           <span><strong>{activeSeats.length}</strong> passenger seats</span>
@@ -88,10 +87,12 @@ export default function Crew() {
       </nav>
 
       {tab === 'queue' && <>
-        <section className="panel crew-tools">
+        <details className="panel crew-demo">
+          <summary>Demo controls</summary>
+          <p>Local backend: {backendOnline ? 'online' : 'offline'}. Voice recognition and translation run on this device.</p>
           <label><input type="checkbox" checked={app.simulateFailure} onChange={event => app.toggleSimFailure(event.target.checked)} /> Simulate crew link failure</label>
           <p>Demo only: passenger requests will not be marked delivered while enabled.</p>
-        </section>
+        </details>
         {app.replyTarget && <ReplyComposer seat={targetSeat} targetLang={targetLang} requestId={app.replyTarget.requestId} onClose={() => app.replyToSeat('', 'en')} />}
         {!!app.repeatRequests.length && <section className="panel repeat-alerts" aria-live="polite">
           <h2>Passengers asking for repetition · {app.repeatRequests.length}</h2>
