@@ -72,6 +72,12 @@
 .conversation-entry.crew-entry { border-left: 4px solid var(--color-accent); }
 .conversation-entry.passenger-entry { border-left: 4px solid var(--color-success); }
 .conversation-entry > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.entry-header-right { display: flex; align-items: center; gap: 6px; }
+.entry-clear { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border: 1px solid var(--color-border); border-radius: 50%; background: var(--color-surface); color: var(--color-text-muted); font-size: 1.05rem; line-height: 1; }
+.entry-clear:hover { border-color: var(--color-urgent); background: var(--color-urgent-dim); color: var(--color-urgent); }
+.history-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.history-actions > span { color: var(--color-text-muted); font-size: .85rem; }
+.btn-compact { min-width: 0; min-height: 32px; padding: 4px 10px; font-size: .78rem; }
 .conversation-entry p { margin: 0 0 6px; font-weight: 650; }
 .conversation-entry small, .conversation-entry time { display: block; margin-top: 5px; color: var(--color-text-muted); font-size: .82rem; }
 .queue-controls { margin-bottom: 16px; }

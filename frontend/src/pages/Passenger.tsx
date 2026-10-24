@@ -16,25 +16,41 @@ function activityStatus(status?: Message['status']) {
   return 'Received';
 }
 
-function ConversationHistory({ messages, deliveryMap }: { messages: Message[]; deliveryMap: Record<string, string> }) {
+function ConversationHistory({ messages, deliveryMap, hiddenIds, onHide, onHideAll, onRestore }: {
+  messages: Message[]; deliveryMap: Record<string, string>;
+  hiddenIds: string[]; onHide: (id: string) => void; onHideAll: (ids: string[]) => void; onRestore: () => void;
+}) {
   const [showAll, setShowAll] = useState(false);
+  const hidden = new Set(hiddenIds);
   const entries = messages
     .filter(message => !message.is_crew_reply && !message.is_outgoing)
     .slice()
-    .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    .sort((a, b) => (a.ts || 0) - (b.ts || 0))
+    .filter(message => !hidden.has(message.id));
   const visibleEntries = (showAll ? entries : entries.slice(-5)).slice().reverse();
   return <section className="panel" aria-label="Conversation history">
-    <header><h2>Conversation</h2><span>{entries.length} messages</span></header>
-    {!entries.length ? <p>Your requests and their crew status will appear here.</p> :
+    <header>
+      <h2>Conversation</h2>
+      <div className="history-actions">
+        <span>{entries.length} shown</span>
+        {entries.length > 0 && <button type="button" className="btn btn-ghost btn-compact" onClick={() => onHideAll(entries.map(message => message.id))}>Clear all</button>}
+        {hiddenIds.length > 0 && <button type="button" className="btn btn-ghost btn-compact" onClick={onRestore}>Restore cleared ({hiddenIds.length})</button>}
+      </div>
+    </header>
+    {!entries.length ? <p>{hiddenIds.length ? 'All requests are cleared from this view. Use “Restore cleared” to bring them back.' : 'Your requests and their crew status will appear here.'}</p> :
       <ol className="conversation-list" aria-live="polite">
         {visibleEntries.map(message => {
           const status = deliveryMap[message.id] as Message['status'] | undefined || message.status;
           return <li className="conversation-entry passenger-entry" key={message.id}>
             <header>
               <strong>Your request</strong>
-              <span className={`badge ${status === 'resolved' ? 'badge-success' : status === 'not_delivered' ? 'badge-urgent' : 'badge-info'}`}>
-                {activityStatus(status)}
-              </span>
+              <div className="entry-header-right">
+                <span className={`badge ${status === 'resolved' ? 'badge-success' : status === 'not_delivered' ? 'badge-urgent' : 'badge-info'}`}>
+                  {activityStatus(status)}
+                </span>
+                <button type="button" className="entry-clear" onClick={() => onHide(message.id)}
+                  aria-label="Clear this request from your conversation view" title="Clear from view">×</button>
+              </div>
             </header>
             <p>{message.translated_text || message.source_text}</p>
             {message.translated_text && message.source_text && message.translated_text !== message.source_text &&
@@ -43,8 +59,8 @@ function ConversationHistory({ messages, deliveryMap }: { messages: Message[]; d
           </li>;
         })}
       </ol>}
-    {entries.length > 5 && <button className="btn btn-ghost" onClick={() => setShowAll(value => !value)}>
-      {showAll ? 'Show recent only' : `Show all ${entries.length} messages`}
+    {entries.length > 5 && <button type="button" className="btn btn-ghost" onClick={() => setShowAll(value => !value)}>
+      {showAll ? 'Show recent only' : `Show all ${entries.length} requests`}
     </button>}
   </section>;
 }
@@ -85,17 +101,45 @@ function CrewReplyInbox({ messages, deliveryMap, lang, speed }: { messages: Mess
 
 export default function Passenger() {
   const app = useApp();
-  const [tab, setTab] = useState<'cards' | 'type' | 'voice' | 'settings' | 'replies'>('cards');
+  const [tab, setTab] = useState<'cards' | 'type' | 'voice' | 'settings' | 'replies' | 'history'>('cards');
   const [crewLang, setCrewLang] = useState<Lang>(app.settings.crewLang);
   const [unreadReplyId, setUnreadReplyId] = useState<string | null>(null);
   const lastSeenReplyId = useRef<string | null>(null);
+  const historyKey = `cb_hidden_requests_${app.settings.seat || 'unknown'}`;
+  const [hiddenRequests, setHiddenRequests] = useState<string[]>(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(historyKey) || '[]');
+      return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : [];
+    } catch { return []; }
+  });
+  const hiddenSet = new Set(hiddenRequests);
+  const historyEntries = app.messages.filter(message => !message.is_crew_reply && !message.is_outgoing);
+  const visibleHistoryCount = historyEntries.filter(message => !hiddenSet.has(message.id)).length;
   const replies = app.messages
     .filter(message => message.is_crew_reply)
     .slice()
     .sort((a, b) => (a.ts || 0) - (b.ts || 0));
-  const lastRequest = [...app.messages].reverse().find(message => !message.is_crew_reply && !message.is_outgoing);
+  const lastRequest = [...app.messages].reverse().find(message => !message.is_crew_reply && !message.is_outgoing && !hiddenSet.has(message.id));
   const latestReply = replies[replies.length - 1];
   const latestReplyText = latestReply ? (latestReply.translated_text || latestReply.source_text) : '';
+
+  function persistHidden(next: string[]) {
+    setHiddenRequests(next);
+    try {
+      if (next.length) localStorage.setItem(historyKey, JSON.stringify(next));
+      else localStorage.removeItem(historyKey);
+    } catch { /* local view preference is optional */ }
+  }
+  function hideRequest(id: string) {
+    if (hiddenSet.has(id)) return;
+    persistHidden([...hiddenRequests, id]);
+  }
+  function hideRequests(ids: string[]) {
+    persistHidden([...new Set([...hiddenRequests, ...ids])]);
+  }
+  function restoreHidden() {
+    persistHidden([]);
+  }
 
   useEffect(() => {
     if (!latestReply || app.settings.confirmBeforeTTS || !window.speechSynthesis) return;
@@ -159,8 +203,8 @@ export default function Passenger() {
   }
 
   const tabs = app.settings.simpleMode
-    ? ['cards', 'voice', 'replies'] as const
-    : ['cards', 'type', 'voice', 'replies', 'settings'] as const;
+    ? ['cards', 'voice', 'replies', 'history'] as const
+    : ['cards', 'type', 'voice', 'replies', 'history', 'settings'] as const;
 
   return (
     <div className="page container">
@@ -179,12 +223,14 @@ export default function Passenger() {
 
       <nav className="tabs" aria-label="Ways to communicate">
         {tabs.map(item => <button className={`tab ${tab === item ? 'active' : ''}`} key={item} onClick={() => setTab(item)}>
-          {item === 'cards' ? 'Phrase cards' : item === 'type' ? 'Type' : item === 'voice' ? 'Voice' : item === 'replies' ? `Crew replies${replies.length ? ` · ${replies.length}` : ''}` : 'Accessibility'}
+          {item === 'cards' ? 'Phrase cards' : item === 'type' ? 'Type' : item === 'voice' ? 'Voice' : item === 'replies' ? `Crew replies${replies.length ? ` · ${replies.length}` : ''}` : item === 'history' ? `History${visibleHistoryCount ? ` · ${visibleHistoryCount}` : ''}` : 'Accessibility'}
         </button>)}
       </nav>
 
-      {tab === 'replies' ? <CrewReplyInbox messages={app.messages} deliveryMap={app.deliveryMap} lang={app.settings.lang} speed={app.settings.ttsSpeed} /> : <>
-      <ConversationHistory messages={app.messages} deliveryMap={app.deliveryMap} />
+      {tab === 'replies' ? <CrewReplyInbox messages={app.messages} deliveryMap={app.deliveryMap} lang={app.settings.lang} speed={app.settings.ttsSpeed} />
+        : tab === 'history' ? <ConversationHistory messages={app.messages} deliveryMap={app.deliveryMap}
+          hiddenIds={hiddenRequests} onHide={hideRequest} onHideAll={hideRequests} onRestore={restoreHidden} />
+        : <>
       <p className="notice">Medical and allergy phrases are communication assistance, not medical advice.</p>
 
       {tab === 'cards' && <PhraseBoard lang={app.settings.lang} targetLang={crewLang}
@@ -216,8 +262,8 @@ export default function Passenger() {
           <button className="btn btn-secondary" disabled={!lastRequest || app.wsStatus !== 'connected'} onClick={() => lastRequest && app.sendRepeatRequest(lastRequest.id)}>❓ I did not understand</button>
         </div>
       </details>}
-      {!app.settings.simpleMode && <details className="panel"><summary>Request status · {Object.keys(app.deliveryMap).length}</summary>
-        {Object.entries(app.deliveryMap).map(([id, status]) => {
+      {!app.settings.simpleMode && <details className="panel"><summary>Request status · {Object.keys(app.deliveryMap).filter(id => !hiddenSet.has(id)).length}</summary>
+        {Object.entries(app.deliveryMap).filter(([id]) => !hiddenSet.has(id)).map(([id, status]) => {
           const message = app.messages.find(item => item.id === id);
           return <p key={id}><strong>{message?.is_crew_reply ? 'Crew reply' : 'Your request'}:</strong> {message?.translated_text || 'Message'} · {status === 'delivered' ? (message?.is_crew_reply ? 'Received' : 'Delivered to crew')
             : status === 'acknowledged' ? 'Acknowledged by crew'
