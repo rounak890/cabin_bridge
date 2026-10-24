@@ -4,7 +4,7 @@ Local-first communication prototype for Japan Airlines problem JAL-PS-02: helpin
 
 ## Run locally
 
-Use the existing prepared environment; no API keys or cloud services are used.
+Use the existing prepared environment; the app runs fully local. Setting `JEV_API_KEY` is optional: it enables the Jev decision API for crew triage summaries (see [SETUP.md](SETUP.md)); without it, a built-in local classifier is used.
 
 This checkout has no `frontend/node_modules`. If the frontend dependencies are not already provisioned on your machine, run `cd frontend && npm install` once before `npm run dev`. No new package is required by the implementation.
 

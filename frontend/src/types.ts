@@ -133,3 +133,19 @@ export interface AppSettings {
   confirmBeforeTTS: boolean;
   languageChosen?: boolean;
 }
+
+
+export interface Classification {
+  intent: string;
+  label: string;
+  icon: string;
+  summary: string;
+  action: string;
+  action_type?: string;
+  urgency: 'routine' | 'attention' | 'urgent';
+  urgency_label?: string;
+  keywords: string[];
+  confidence: number | null;
+  source: 'jev' | 'local';
+  error?: string;
+}

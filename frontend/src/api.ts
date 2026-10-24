@@ -1,5 +1,5 @@
 // Typed API client for CabinBridge
-import type { TranscribeResponse, TranslateResponse, MetricsResponse } from './types';
+import type { TranscribeResponse, TranslateResponse, MetricsResponse, Classification } from './types';
 
 const BASE = '';
 
@@ -43,4 +43,20 @@ export async function apiMetrics(): Promise<MetricsResponse> {
 
 export async function apiToggleFailure(on: boolean): Promise<void> {
   await fetch(`${BASE}/api/simulate_failure?on=${on}`, { method: 'POST' });
+}
+
+export async function apiClassify(
+  text: string,
+  sourceText: string,
+  sourceLang: string,
+  targetLang: string,
+  kind: string
+): Promise<Classification> {
+  const r = await fetch(`${BASE}/api/classify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, source_text: sourceText, source_lang: sourceLang, target_lang: targetLang, kind }),
+  });
+  if (!r.ok) throw new Error(`Classify failed: ${r.status}`);
+  return r.json();
 }
