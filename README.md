@@ -67,6 +67,19 @@ Faster Whisper small provides local transcription for the seven listed languages
 - Allergy and medical phrases are communication assistance, not medical advice. Phrase translations require native-speaker review before any operational use.
 - With no server-confirmed crew delivery, the interface says Not delivered and directs the passenger to the overhead call button or to raise a hand.
 
+Passenger Side Home Page
+<img width="1710" height="1107" alt="Screenshot 2026-10-25 at 9 56 38 AM" src="https://github.com/user-attachments/assets/8fed874a-0f1a-4fce-8841-f5960c02c2ff" />
+
+<img width="1710" height="1107" alt="Screenshot 2026-10-25 at 9 57 17 AM" src="https://github.com/user-attachments/assets/c8af8a11-f37c-47c9-ac95-04b7c7b7ed37" />
+
+<img width="1710" height="1107" alt="Screenshot 2026-10-25 at 9 57 53 AM" src="https://github.com/user-attachments/assets/54deae44-f8b5-47d1-bf43-17d148a443a2" />
+
+<img width="1710" height="1107" alt="Screenshot 2026-10-25 at 9 58 29 AM" src="https://github.com/user-attachments/assets/1205d800-2fb5-4431-939a-6442f35f09f7" />
+
+Crew Members Side Home Page
+<img width="1710" height="1107" alt="Screenshot 2026-10-25 at 9 58 59 AM" src="https://github.com/user-attachments/assets/cb06dd5e-06d2-480d-a2f4-807cc6ec334e" />
+
+
 ## Demo and measurement plan
 
 Use `/demo` for a Hindi routine request, unclear audio guidance, urgent delivery failure, and offline instructions. Enable simulated crew-link failure from the Crew screen to demonstrate a not-delivered state. `/metrics` reports the latest 50 request records, per-step latency, median/p95, and fallback counts. The noise helper generates looping brown noise locally using Web Audio.
