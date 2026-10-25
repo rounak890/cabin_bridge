@@ -1,6 +1,8 @@
 """
 CabinBridge FastAPI application entry point.
 """
+import threading
+
 from fastapi import FastAPI, WebSocket, Query
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,9 +11,18 @@ from .routes.translate import router as translate_router
 from .routes.transcribe import router as transcribe_router
 from .routes.metrics import router as metrics_router
 from .routes.classify import router as classify_router
+from .translation import warm_argos, warm_ollama
 from .ws import websocket_handler
 
 app = FastAPI(title="CabinBridge", version="1.0.0")
+
+
+@app.on_event("startup")
+def warm_translation_model():
+    # Load the local Japanese translation model in the background so the first
+    # typed preview is not delayed by a several-second cold start.
+    threading.Thread(target=warm_ollama, daemon=True).start()
+    threading.Thread(target=warm_argos, daemon=True).start()
 
 app.add_middleware(
     CORSMiddleware,

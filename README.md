@@ -33,7 +33,7 @@ flowchart LR
   A --> F[Faster Whisper small int8 CPU]
   P -->|typed source| T[POST /api/translate]
   T --> X[Approved phrase lookup]
-  X -->|no exact match| G[Argos Translate local]
+  X -->|no exact match| G[Argos for en↔hi · local Qwen for ja]
   P -. offline tabs .-> B[BroadcastChannel]
   P --> S[Service worker and cached phrasebook]
   W --> M[GET /api/metrics]
@@ -46,14 +46,14 @@ All request/session data lives in backend process memory for one demo flight. Re
 | Language | Code | ASR | Live translation | Browser TTS | Phrasebook |
 |---|---|---:|---:|---:|---:|
 | English | en | Yes | Yes | If voice installed | Yes |
-| Japanese | ja | Yes | Yes, via English pivot to Hindi | If voice installed | Yes |
+| Japanese | ja | Yes | Yes, local Qwen via Ollama (ja→hi via English) | If voice installed | Yes |
 | Hindi | hi | Yes | Yes, via English pivot to Japanese | If voice installed | Yes |
 | Thai | th | Yes | Phrasebook/original fallback | If voice installed | Yes |
 | Vietnamese | vi | Yes | Phrasebook/original fallback | If voice installed | Yes |
 | Indonesian | id | Yes | Phrasebook/original fallback | If voice installed | Yes |
 | Filipino/Tagalog | tl | Yes | Phrasebook/original fallback | If voice installed | Yes |
 
-Faster Whisper small provides local transcription for the seven listed languages. Argos supports English↔Japanese and English↔Hindi directly and Japanese↔Hindi through English. Other language pairs use the approved phrasebook and preserve the original text. Browser TTS availability depends on installed browser voices.
+Faster Whisper small provides local transcription for the seven listed languages. Argos handles English↔Hindi; Japanese pairs use a local Qwen 2.5 model through Ollama, with ja↔hi bridged through English. Other language pairs use the approved phrasebook and preserve the original text. Browser TTS availability depends on installed browser voices.
 
 ## Safety, privacy, and accessibility
 

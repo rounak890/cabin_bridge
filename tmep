@@ -1,3 +1,13 @@
 JEV="sk_iVlMQVM_uNlEdfrktbmNh5ae04WpmTeRuXHUbGmto_g"
 
 export JEV_API_KEY="sk_iVlMQVM_uNlEdfrktbmNh5ae04WpmTeRuXHUbGmto_g"
+
+
+
+PROMPTS TO BE SENT 
+-> one more thing which i have to do is that if multiple persons are
+ speaking simultaneously into the mic then they should be able to identify each 
+ different person's request seprately and accurately
+
+-> ngrok config add-authtoken 3LAFtOU3H8oJBh3gAOfJeXQFHU4_XnWfPh4yxvjG6cFpkzBj
+

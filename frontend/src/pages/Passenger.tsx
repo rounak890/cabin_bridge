@@ -224,6 +224,11 @@ export default function Passenger() {
     app.updateSettings({ lang: next });
   }
 
+  function changeCrewLang(next: Lang) {
+    setCrewLang(next);
+    app.updateSettings({ crewLang: next });
+  }
+
   const header = <>
     <header className="simple-top">
       <div>
@@ -313,6 +318,13 @@ export default function Passenger() {
         {view === 'voice' && <section className="simple-panel" aria-label="Speak your request">
           <h2>Speak your request</h2>
           <p className="simple-panel-hint">Tap the microphone, say what you need, check the words, then send.</p>
+          <div className="compose-target">
+            <span>Translate for crew</span>
+            <select value={crewLang} onChange={event => changeCrewLang(event.target.value as Lang)}>
+              {LANGUAGES.filter(language => language.translate).map(language =>
+                <option key={language.code} value={language.code}>{language.nativeName}</option>)}
+            </select>
+          </div>
           {voiceAvailable ? <VoiceRecorder targetLang={crewLang}
             onResult={(source, translated, asrMs, translateMs, confidence, edited) => send(source, translated, 'speech', {
               asr_ms: asrMs, translate_ms: translateMs,
@@ -323,7 +335,7 @@ export default function Passenger() {
 
         {view === 'type' && <section className="simple-panel" aria-label="Type your request">
           <h2>Type your request</h2>
-          <MessageComposer sourceLang={app.settings.lang} targetLang={crewLang} onSend={send} />
+          <MessageComposer sourceLang={app.settings.lang} targetLang={crewLang} onSend={send} onTargetLangChange={changeCrewLang} />
         </section>}
 
         {view === 'replies' && <CrewReplyInbox messages={app.messages} deliveryMap={app.deliveryMap} lang={app.settings.lang} speed={app.settings.ttsSpeed} />}
@@ -339,11 +351,7 @@ export default function Passenger() {
             <details>
               <summary>🌐 Crew language</summary>
               <p className="simple-panel-hint">The language your messages are translated into for the crew.</p>
-              <select value={crewLang} onChange={event => {
-                const next = event.target.value as Lang;
-                setCrewLang(next);
-                app.updateSettings({ crewLang: next });
-              }}>
+              <select value={crewLang} onChange={event => changeCrewLang(event.target.value as Lang)}>
                 {LANGUAGES.filter(language => language.translate).map(language =>
                   <option key={language.code} value={language.code}>{language.nativeName}</option>)}
               </select>

@@ -51,7 +51,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       const stored = localStorage.getItem('cb_settings');
-      return stored ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) } : DEFAULT_SETTINGS;
+      const parsed = stored ? JSON.parse(stored) as Partial<AppSettings> : null;
+      const merged: AppSettings = { ...DEFAULT_SETTINGS, ...(parsed || {}) };
+      // Older sessions persisted crewLang="hi" from an earlier demo. Reset the
+      // crew translation target to English once; an explicit choice after that
+      // is preserved (the marker is saved with the settings).
+      if (!parsed || parsed.crewLangVersion !== 2) {
+        merged.crewLang = 'en';
+        merged.crewLangVersion = 2;
+        localStorage.setItem('cb_settings', JSON.stringify(merged));
+      }
+      return merged;
     } catch { return DEFAULT_SETTINGS; }
   });
 

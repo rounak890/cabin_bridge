@@ -125,6 +125,8 @@ export interface AppSettings {
   seat: string;
   lang: Lang;
   crewLang: Lang;
+  /** One-time migration marker; legacy settings defaulted the crew language to Hindi. */
+  crewLangVersion?: number;
   textSize: 1 | 2 | 3 | 4;   // 1=small, 4=xlarge
   highContrast: boolean;
   reducedMotion: boolean;

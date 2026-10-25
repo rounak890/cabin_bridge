@@ -34,6 +34,8 @@ def translate_text(req: TranslateRequest):
         msg = str(e)
         if "unsupported_pair" in msg:
             return {"error": "unsupported_pair"}
+        if "translation_model_unavailable" in msg:
+            return {"error": "translation_model_unavailable"}
         return {"error": msg}
     except Exception as e:
         return {"error": f"translation_failed: {e}"}

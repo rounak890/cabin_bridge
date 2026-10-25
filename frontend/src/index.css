@@ -298,3 +298,8 @@ mark.highlight-number { background: #e4edf5; color: #173b5a; }
 .queue-full .translation-pair { margin: 6px 0; }
 mark.highlight-keyword { background: #fff0a8; color: #4d3b00; border-radius: 3px; padding: 0 2px; font-weight: 800; }
 .high-contrast mark.highlight-keyword { background: #ff0; color: #000; }
+
+/* Explicit translation target, so a stale crew-language choice is visible. */
+.compose-target { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 12px; color: var(--color-text-muted); font-size: .82rem; font-weight: 600; }
+.compose-target select { width: auto; min-width: 0; padding: 6px 10px; font-size: .85rem; }
+.compose-target strong { color: var(--color-text); }
